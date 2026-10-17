@@ -2,7 +2,8 @@ import shutil
 
 import pytest
 
-from app.fixer import apply_fix, extract_code, verify
+from app import llm
+from app.fixer import apply_fix, extract_code, fix_finding, verify
 from app.scanner import run_semgrep
 
 
@@ -61,3 +62,26 @@ def test_verify_rejects_unchanged_code(tmp_path):
 def test_verify_rejects_syntax_error():
     ok, reason = verify("def broken(:\n", "any-rule", [])
     assert not ok and "syntax error" in reason
+
+
+@needs_semgrep
+def test_fix_loop_retries_with_feedback(tmp_path, monkeypatch):
+    before = findings_of(VULNERABLE, tmp_path)
+    finding = before[0]
+    lines = VULNERABLE.splitlines()
+    bad_reply = f"```python\n{VULNERABLE}```"     # 1st try: AI returns the code unchanged
+    good_reply = f"```python\n{FIXED}```"         # 2nd try: AI returns the parameterized query
+    prompts = []
+
+    def fake_ask(prompt, *args, **kwargs):
+        prompts.append(prompt)
+        return bad_reply if len(prompts) == 1 else good_reply
+
+    monkeypatch.setattr(llm, "ask", fake_ask)
+    # Let the AI rewrite the whole (short) file so the fake replies line up
+    monkeypatch.setattr("app.fixer.WINDOW", 100)
+
+    result = fix_finding(finding, lines, before)
+    assert result["status"] == "verified"
+    assert result["attempts"] == 2
+    assert "FAILED verification" in prompts[1]      # the failure reason was fed back
