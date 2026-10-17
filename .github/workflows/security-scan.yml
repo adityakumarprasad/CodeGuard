@@ -1,0 +1,26 @@
+name: CodeGuard security scan
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["demo/**"]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: pipx install semgrep==1.181.0
+      - run: uv sync
+      - run: uv run python -m app.cli demo/*.py --sarif codeguard.sarif
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: codeguard.sarif
