@@ -55,3 +55,9 @@ def analyze(code: str, filename: str = "code.py", fix: bool = False) -> dict:
                     finding.fix = {"status": "unverified", "attempts": 0, "reason": type(e).__name__}
 
     return {"filename": filename, "findings": findings, "logic_issues": logic_issues}
+
+
+# Group all LLM calls of one scan into a single Langfuse trace (only when Langfuse is configured)
+if config.LANGFUSE_ENABLED:
+    from langfuse import observe
+    analyze = observe(name="security-scan")(analyze)
