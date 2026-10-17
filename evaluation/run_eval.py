@@ -47,6 +47,23 @@ def pct(a: int, b: int) -> str:
     return f"{100 * a / b:.0f}%" if b else "n/a"
 
 
+def ratio(a: int, b: int) -> float:
+    return a / b if b else 0.0
+
+
+def log_scores_to_langfuse(precision: float, recall: float, fix_rate: float | None):
+    """Attach the evaluation numbers to this run's trace, so runs can be compared in Langfuse."""
+    if not config.LANGFUSE_ENABLED:
+        return
+    from langfuse import get_client
+    langfuse = get_client()
+    tags = {"model": config.LLM_MODEL, "prompt_version": config.PROMPT_VERSION}
+    langfuse.score_current_trace(name="precision", value=precision, metadata=tags)
+    langfuse.score_current_trace(name="recall", value=recall, metadata=tags)
+    if fix_rate is not None:
+        langfuse.score_current_trace(name="fix_rate", value=fix_rate, metadata=tags)
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     sys.stdout.reconfigure(encoding="utf-8")
@@ -100,6 +117,19 @@ def main():
     print("\n" + text)
     with open(RESULTS_FILE, "w", encoding="utf-8") as f:
         f.write(text + "\n")
+
+    log_scores_to_langfuse(
+        precision=ratio(t["a_correct"], t["a_correct"] + t["a_wrong"]),
+        recall=ratio(t["a_found"], t["bugs"]),
+        fix_rate=ratio(t["fix_ok"], t["fix_tried"]) if args.fix else None,
+    )
+    llm.flush()
+
+
+# The whole evaluation becomes one trace, with each scan nested inside it
+if config.LANGFUSE_ENABLED:
+    from langfuse import observe
+    main = observe(name="evaluation-run")(main)
 
 
 if __name__ == "__main__":
