@@ -1,5 +1,8 @@
-"""The ONLY place that talks to Gemini."""
+"""The ONLY place that talks to Gemini. Protects the free tier with:
+cache -> pacing -> retry with exponential backoff."""
+import hashlib
 import logging
+import os
 import threading
 import time
 
@@ -12,7 +15,7 @@ log = logging.getLogger(__name__)
 client = OpenAI(
     api_key=config.GEMINI_API_KEY or "not-set",   # the SDK refuses an empty key; calls fail clearly with 401
     base_url=config.GEMINI_BASE_URL,
-    max_retries=0,   # we do retries ourselves, so the logic is visible and explainable
+    max_retries=0,   # we do retries ourselves below, so the logic is visible and explainable
     timeout=90,
 )
 
@@ -21,6 +24,11 @@ stats = {"api_calls": 0, "cache_hits": 0, "retries": 0}
 
 _lock = threading.Lock()          # makes pacing work even when the API serves 2 requests at once
 _last_call_time = 0.0
+
+
+def _cache_file(prompt: str) -> str:
+    key = hashlib.sha256((config.LLM_MODEL + prompt).encode()).hexdigest()
+    return os.path.join(config.CACHE_DIR, key + ".txt")
 
 
 def _wait_for_turn():
@@ -48,7 +56,13 @@ def _call_gemini(prompt: str, max_tokens: int) -> str:
 
 
 def ask(prompt: str, max_tokens: int = 4000) -> str:
-    """Send one prompt, get text back."""
+    """Send one prompt, get text back. Safe to call on the free tier."""
+    cache_file = _cache_file(prompt)
+    if os.path.exists(cache_file):
+        stats["cache_hits"] += 1
+        with open(cache_file, encoding="utf-8") as f:
+            return f.read()
+
     last_error = None
     for attempt in range(config.MAX_RETRIES + 1):
         if attempt > 0:
@@ -60,10 +74,17 @@ def ask(prompt: str, max_tokens: int = 4000) -> str:
 
         _wait_for_turn()
         try:
-            return _call_gemini(prompt, max_tokens)
+            text = _call_gemini(prompt, max_tokens)
         except RateLimitError as e:              # HTTP 429
             last_error = e
+            continue
         except (APIConnectionError, InternalServerError) as e:   # network problem or Google overloaded (5xx)
             last_error = e
+            continue
+
+        os.makedirs(config.CACHE_DIR, exist_ok=True)
+        with open(cache_file, "w", encoding="utf-8") as f:
+            f.write(text)
+        return text
 
     raise last_error
