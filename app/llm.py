@@ -1,5 +1,7 @@
 """The ONLY place that talks to Gemini."""
 import logging
+import threading
+import time
 
 from openai import OpenAI
 
@@ -16,6 +18,19 @@ client = OpenAI(
 
 # Simple counters. They show up in the CLI output and evaluation report.
 stats = {"api_calls": 0, "cache_hits": 0, "retries": 0}
+
+_lock = threading.Lock()          # makes pacing work even when the API serves 2 requests at once
+_last_call_time = 0.0
+
+
+def _wait_for_turn():
+    """Pacing: at least SECONDS_BETWEEN_CALLS between two requests."""
+    global _last_call_time
+    with _lock:
+        wait = config.SECONDS_BETWEEN_CALLS - (time.time() - _last_call_time)
+        if wait > 0:
+            time.sleep(wait)
+        _last_call_time = time.time()
 
 
 def _call_gemini(prompt: str, max_tokens: int) -> str:
@@ -34,4 +49,5 @@ def _call_gemini(prompt: str, max_tokens: int) -> str:
 
 def ask(prompt: str, max_tokens: int = 4000) -> str:
     """Send one prompt, get text back."""
+    _wait_for_turn()
     return _call_gemini(prompt, max_tokens)
