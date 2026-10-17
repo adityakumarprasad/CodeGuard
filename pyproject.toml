@@ -1,0 +1,22 @@
+[project]
+name = "codeguard-ai"
+version = "0.1.0"
+description = "AI security analyst: Semgrep + Gemini triage, self-verifying fixes, MCP server and SARIF output"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.143.3",
+    "mcp>=2.3.0",
+    "openai>=3.33.0",
+    "python-dotenv>=1.2.4",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

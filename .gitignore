@@ -1,0 +1,18 @@
+# secrets
+.env
+*.tfvars
+!example.tfvars
+
+# python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# our LLM cache and outputs
+.cache/
+*.sarif
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.*
