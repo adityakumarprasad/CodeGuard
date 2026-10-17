@@ -1,10 +1,11 @@
 """The ONLY place that talks to Gemini. Protects the free tier with:
-cache -> pacing -> retry with exponential backoff."""
+cache -> daily limit -> pacing -> retry with exponential backoff."""
 import hashlib
 import logging
 import os
 import threading
 import time
+from datetime import date
 
 from openai import APIConnectionError, InternalServerError, OpenAI, RateLimitError
 
@@ -24,11 +25,26 @@ stats = {"api_calls": 0, "cache_hits": 0, "retries": 0}
 
 _lock = threading.Lock()          # makes pacing work even when the API serves 2 requests at once
 _last_call_time = 0.0
+_today = {"date": "", "count": 0}
+
+
+class DailyLimitReached(Exception):
+    pass
 
 
 def _cache_file(prompt: str) -> str:
     key = hashlib.sha256((config.LLM_MODEL + prompt).encode()).hexdigest()
     return os.path.join(config.CACHE_DIR, key + ".txt")
+
+
+def _check_daily_limit():
+    today = date.today().isoformat()
+    if _today["date"] != today:            # new day: reset the counter
+        _today["date"] = today
+        _today["count"] = 0
+    if _today["count"] >= config.DAILY_CALL_LIMIT:
+        raise DailyLimitReached("Daily LLM call limit reached. Try again tomorrow.")
+    _today["count"] += 1
 
 
 def _wait_for_turn():
@@ -72,10 +88,14 @@ def ask(prompt: str, max_tokens: int = 4000) -> str:
                         type(last_error).__name__, wait, attempt, config.MAX_RETRIES)
             time.sleep(wait)
 
+        _check_daily_limit()
         _wait_for_turn()
         try:
             text = _call_gemini(prompt, max_tokens)
         except RateLimitError as e:              # HTTP 429
+            if "PerDay" in str(e):               # daily quota is gone: retrying is pointless
+                _today["count"] = config.DAILY_CALL_LIMIT
+                raise DailyLimitReached("Gemini free daily quota is used up.") from e
             last_error = e
             continue
         except (APIConnectionError, InternalServerError) as e:   # network problem or Google overloaded (5xx)
