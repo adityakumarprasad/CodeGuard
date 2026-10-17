@@ -35,7 +35,7 @@ def is_grounded(issue: dict, lines: list[str]) -> bool:
 def review_logic(lines: list[str]) -> list[dict]:
     if not lines or len(lines) > config.MAX_LINES_FOR_REVIEW:
         return []          # too big for one small request: skip to protect the free quota
-    issues = llm.ask_json(PROMPT.format(code=number_lines(lines, 1, len(lines))))
+    issues = llm.ask_json(PROMPT.format(code=number_lines(lines, 1, len(lines))), name="logic-review")
     if not isinstance(issues, list):
         return []
     return [i for i in issues if isinstance(i, dict) and is_grounded(i, lines)]

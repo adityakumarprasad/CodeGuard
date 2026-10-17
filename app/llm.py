@@ -8,9 +8,14 @@ import threading
 import time
 from datetime import date
 
-from openai import APIConnectionError, InternalServerError, OpenAI, RateLimitError
+from openai import APIConnectionError, InternalServerError, RateLimitError
 
 from app import config
+
+if config.LANGFUSE_ENABLED:
+    from langfuse.openai import OpenAI     # same client as openai.OpenAI, but every call is traced
+else:
+    from openai import OpenAI
 
 log = logging.getLogger(__name__)
 
@@ -58,13 +63,15 @@ def _wait_for_turn():
         _last_call_time = time.time()
 
 
-def _call_gemini(prompt: str, max_tokens: int) -> str:
+def _call_gemini(prompt: str, max_tokens: int, name: str) -> str:
     stats["api_calls"] += 1
+    extra = {"name": name} if config.LANGFUSE_ENABLED else {}   # plain OpenAI client doesn't accept "name"
     response = client.chat.completions.create(
         model=config.LLM_MODEL,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=max_tokens,
         temperature=0,   # same input -> (almost) same output; good for security and caching
+        **extra,
     )
     text = response.choices[0].message.content or ""
     if not text.strip():
@@ -72,7 +79,7 @@ def _call_gemini(prompt: str, max_tokens: int) -> str:
     return text
 
 
-def ask(prompt: str, max_tokens: int = 4000) -> str:
+def ask(prompt: str, max_tokens: int = 4000, name: str = "llm-call") -> str:
     """Send one prompt, get text back. Safe to call on the free tier."""
     cache_file = _cache_file(prompt)
     if os.path.exists(cache_file):
@@ -92,7 +99,7 @@ def ask(prompt: str, max_tokens: int = 4000) -> str:
         _check_daily_limit()
         _wait_for_turn()
         try:
-            text = _call_gemini(prompt, max_tokens)
+            text = _call_gemini(prompt, max_tokens, name)
         except RateLimitError as e:              # HTTP 429
             if "PerDay" in str(e):               # daily quota is gone: retrying is pointless
                 _today["count"] = config.DAILY_CALL_LIMIT
@@ -121,12 +128,19 @@ def parse_json(text: str):
     return json.loads(text[start:end])
 
 
-def ask_json(prompt: str, max_tokens: int = 4000):
+def ask_json(prompt: str, max_tokens: int = 4000, name: str = "llm-call"):
     """Like ask(), but returns parsed JSON. Asks once more if the first reply is not valid JSON."""
-    text = ask(prompt, max_tokens)
+    text = ask(prompt, max_tokens, name)
     try:
         return parse_json(text)
     except ValueError:
         log.warning("Reply was not valid JSON, asking once more")
-        text = ask(prompt + "\n\nYour previous reply was not valid JSON. Reply with ONLY the JSON.", max_tokens)
+        text = ask(prompt + "\n\nYour previous reply was not valid JSON. Reply with ONLY the JSON.", max_tokens, name)
         return parse_json(text)
+
+
+def flush():
+    """Send any buffered traces to Langfuse. Call this before a short-lived script exits."""
+    if config.LANGFUSE_ENABLED:
+        from langfuse import get_client
+        get_client().flush()

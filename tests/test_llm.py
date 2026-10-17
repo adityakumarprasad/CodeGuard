@@ -29,7 +29,7 @@ def fake_gemini(monkeypatch, tmp_path):
 def test_retries_after_rate_limit(fake_gemini, monkeypatch):
     replies = [FakeRateLimit("429 Too Many Requests"), "hello"]
 
-    def fake_call(prompt, max_tokens):
+    def fake_call(prompt, max_tokens, name):
         reply = replies.pop(0)
         if isinstance(reply, Exception):
             raise reply
@@ -42,7 +42,7 @@ def test_retries_after_rate_limit(fake_gemini, monkeypatch):
 def test_daily_quota_error_stops_immediately(fake_gemini, monkeypatch):
     calls = []
 
-    def fake_call(prompt, max_tokens):
+    def fake_call(prompt, max_tokens, name):
         calls.append(prompt)
         raise FakeRateLimit("429 quota exceeded: GenerateRequestsPerDayPerProjectPerModel-FreeTier")
 
@@ -53,7 +53,7 @@ def test_daily_quota_error_stops_immediately(fake_gemini, monkeypatch):
 
 
 def test_second_identical_prompt_uses_cache(fake_gemini, monkeypatch):
-    monkeypatch.setattr(llm, "_call_gemini", lambda prompt, max_tokens: "answer")
+    monkeypatch.setattr(llm, "_call_gemini", lambda prompt, max_tokens, name: "answer")
     llm.ask("same prompt")
-    monkeypatch.setattr(llm, "_call_gemini", lambda prompt, max_tokens: pytest.fail("API called again"))
+    monkeypatch.setattr(llm, "_call_gemini", lambda prompt, max_tokens, name: pytest.fail("API called again"))
     assert llm.ask("same prompt") == "answer"

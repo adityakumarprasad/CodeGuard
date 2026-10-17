@@ -75,7 +75,7 @@ def fix_finding(finding: Finding, lines: list[str], findings_before: list[Findin
 
     for attempt in range(1, config.MAX_FIX_ATTEMPTS + 1):
         reply = llm.ask(PROMPT.format(message=finding.message, explanation=finding.explanation,
-                                      start=start, end=end, block=block, feedback=feedback))
+                                      start=start, end=end, block=block, feedback=feedback), name="fix")
         new_code = extract_code(reply)
         if not new_code:
             reason = "the reply had no ```python code block"

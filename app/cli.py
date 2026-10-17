@@ -25,6 +25,7 @@ def main():
         print(to_markdown(result))
 
     print(f"\nLLM usage: {llm.stats}")
+    llm.flush()
 
 
 if __name__ == "__main__":

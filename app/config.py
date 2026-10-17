@@ -24,6 +24,10 @@ MAX_FIX_ATTEMPTS = int(os.getenv("MAX_FIX_ATTEMPTS", "3"))
 MAX_LINES_FOR_REVIEW = 400                                  # bigger files skip the AI logic review
 SEMGREP_RULES = os.getenv("SEMGREP_RULES", str(PROJECT_ROOT / "rules" / "python.yml"))
 
+# --- Observability (optional) ---
+LANGFUSE_ENABLED = bool(os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"))
+PROMPT_VERSION = os.getenv("PROMPT_VERSION", "v1")   # bump this when you change a prompt
+
 # --- API security ---
 API_KEY = os.getenv("API_KEY", "")
 MAX_CODE_CHARS = 100_000

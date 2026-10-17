@@ -34,7 +34,7 @@ def triage(finding: Finding, lines: list[str]) -> Finding:
         line=finding.line,
         snippet=get_snippet(lines, finding.line),
     )
-    answer = llm.ask_json(prompt)
+    answer = llm.ask_json(prompt, name="triage")
 
     # Only dismiss a finding if the AI clearly says false. When unsure, keep it (fail safe).
     finding.is_real = answer.get("is_real") is not False
