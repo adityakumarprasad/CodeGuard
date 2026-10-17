@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CodeGuard AI</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 16px; }
+    textarea { width: 100%; height: 300px; font-family: monospace; }
+    pre { white-space: pre-wrap; background: #f4f4f4; padding: 12px; border-radius: 6px; }
+    button { padding: 8px 20px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>CodeGuard AI</h1>
+  <p>Paste Python code. Semgrep scans it, Gemini triages the findings, and fixes are verified before they're shown.</p>
+  <p><small>Demo only: don't paste private code (it is sent to a free-tier LLM).</small></p>
+  <input id="key" type="password" placeholder="API key">
+  <label><input id="fix" type="checkbox"> Generate verified fixes (slower)</label>
+  <textarea id="code" placeholder="Paste Python code here"></textarea>
+  <button id="scan">Scan</button>
+  <pre id="out"></pre>
+  <script>
+    document.getElementById("scan").onclick = async () => {
+      const out = document.getElementById("out");
+      out.textContent = "Scanning... (free-tier pacing can take a minute)";
+      const res = await fetch("/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": document.getElementById("key").value },
+        body: JSON.stringify({ code: document.getElementById("code").value, fix: document.getElementById("fix").checked }),
+      });
+      const data = await res.json();
+      out.textContent = res.ok ? data.report_markdown : "Error: " + JSON.stringify(data.detail);
+    };
+  </script>
+</body>
+</html>
