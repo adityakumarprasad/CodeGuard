@@ -3,7 +3,7 @@ from app.report import to_markdown, to_sarif
 
 
 def make_result():
-    return {"filename": "demo\a.py", "logic_issues": [], "findings": [
+    return {"filename": r"demo\a.py", "logic_issues": [], "findings": [   # Windows-style path
         Finding(rule_id="r1", line=3, end_line=3, severity="ERROR", message="m", is_real=True, severity_ai="high"),
         Finding(rule_id="r2", line=9, end_line=9, severity="INFO", message="m", is_real=False, severity_ai="low"),
     ]}
