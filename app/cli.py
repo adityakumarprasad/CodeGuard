@@ -1,11 +1,12 @@
 """Command line:  uv run python -m app.cli FILE [FILE ...] [--fix] [--sarif out.sarif]"""
 import argparse
+import json
 import logging
 import sys
 
 from app import llm
 from app.pipeline import analyze
-from app.report import to_markdown
+from app.report import to_markdown, to_sarif
 
 
 def main():
@@ -23,6 +24,11 @@ def main():
             result = analyze(f.read(), filename=path, fix=args.fix)
         results.append(result)
         print(to_markdown(result))
+
+    if args.sarif:
+        with open(args.sarif, "w", encoding="utf-8") as f:
+            json.dump(to_sarif(results), f, indent=2)
+        print(f"SARIF written to {args.sarif}")
 
     print(f"\nLLM usage: {llm.stats}")
     llm.flush()
