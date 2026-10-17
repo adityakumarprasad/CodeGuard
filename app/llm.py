@@ -3,7 +3,7 @@ import logging
 import threading
 import time
 
-from openai import OpenAI
+from openai import APIConnectionError, InternalServerError, OpenAI, RateLimitError
 
 from app import config
 
@@ -49,5 +49,21 @@ def _call_gemini(prompt: str, max_tokens: int) -> str:
 
 def ask(prompt: str, max_tokens: int = 4000) -> str:
     """Send one prompt, get text back."""
-    _wait_for_turn()
-    return _call_gemini(prompt, max_tokens)
+    last_error = None
+    for attempt in range(config.MAX_RETRIES + 1):
+        if attempt > 0:
+            wait = 10 * 2 ** (attempt - 1)       # 10s, 20s, 40s, 80s  (exponential backoff)
+            stats["retries"] += 1
+            log.warning("Gemini busy (%s). Waiting %ss, retry %s/%s",
+                        type(last_error).__name__, wait, attempt, config.MAX_RETRIES)
+            time.sleep(wait)
+
+        _wait_for_turn()
+        try:
+            return _call_gemini(prompt, max_tokens)
+        except RateLimitError as e:              # HTTP 429
+            last_error = e
+        except (APIConnectionError, InternalServerError) as e:   # network problem or Google overloaded (5xx)
+            last_error = e
+
+    raise last_error
