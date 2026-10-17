@@ -1,6 +1,7 @@
 """The ONLY place that talks to Gemini. Protects the free tier with:
 cache -> daily limit -> pacing -> retry with exponential backoff."""
 import hashlib
+import json
 import logging
 import os
 import threading
@@ -108,3 +109,24 @@ def ask(prompt: str, max_tokens: int = 4000) -> str:
         return text
 
     raise last_error
+
+
+def parse_json(text: str):
+    """Get JSON out of a reply, even if the model wrapped it in ```json ... ``` or added words."""
+    starts = [i for i in (text.find("{"), text.find("[")) if i != -1]
+    if not starts:
+        raise ValueError("No JSON found in the reply")
+    start = min(starts)
+    end = max(text.rfind("}"), text.rfind("]")) + 1
+    return json.loads(text[start:end])
+
+
+def ask_json(prompt: str, max_tokens: int = 4000):
+    """Like ask(), but returns parsed JSON. Asks once more if the first reply is not valid JSON."""
+    text = ask(prompt, max_tokens)
+    try:
+        return parse_json(text)
+    except ValueError:
+        log.warning("Reply was not valid JSON, asking once more")
+        text = ask(prompt + "\n\nYour previous reply was not valid JSON. Reply with ONLY the JSON.", max_tokens)
+        return parse_json(text)
