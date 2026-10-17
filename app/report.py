@@ -46,3 +46,37 @@ def to_markdown(result: dict) -> str:
             out.append(f"- {short_rule(f.rule_id)} (line {f.line}): {f.explanation}")
 
     return "\n".join(out)
+
+
+# --- SARIF: the standard format GitHub code scanning understands ---
+LEVELS = {"critical": "error", "high": "error", "medium": "warning", "low": "note"}
+
+
+def _sarif_result(rule_id: str, text: str, severity: str, filename: str, line: int) -> dict:
+    return {
+        "ruleId": rule_id,
+        "level": LEVELS.get(str(severity), "warning"),
+        "message": {"text": text},
+        "locations": [{"physicalLocation": {
+            "artifactLocation": {"uri": filename.replace("\\", "/")},   # SARIF wants forward slashes
+            "region": {"startLine": line},
+        }}],
+    }
+
+
+def to_sarif(results: list[dict]) -> dict:
+    items = []
+    for result in results:
+        for f in result["findings"]:
+            if f.is_real:
+                items.append(_sarif_result(f.rule_id, f.explanation or f.message,
+                                           f.severity_ai, result["filename"], f.line))
+        for issue in result["logic_issues"]:
+            items.append(_sarif_result("codeguard.ai-logic-review",
+                                       f"{issue.get('title', '')}: {issue.get('explanation', '')}",
+                                       issue.get("severity", "medium"), result["filename"], issue["line"]))
+    return {
+        "version": "2.1.0",
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "runs": [{"tool": {"driver": {"name": "CodeGuard AI", "rules": []}}, "results": items}],
+    }
