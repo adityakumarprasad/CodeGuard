@@ -24,6 +24,7 @@ def fake_gemini(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "CACHE_DIR", str(tmp_path))
     monkeypatch.setattr(config, "SECONDS_BETWEEN_CALLS", 0)
     monkeypatch.setattr(llm, "_today", {"date": "", "count": 0})
+    monkeypatch.setattr(llm, "stats", {"api_calls": 0, "cache_hits": 0, "retries": 0, "quota_exhausted": False})
 
 
 def test_retries_after_rate_limit(fake_gemini, monkeypatch):
@@ -50,6 +51,7 @@ def test_daily_quota_error_stops_immediately(fake_gemini, monkeypatch):
     with pytest.raises(llm.DailyLimitReached):
         llm.ask("hi")
     assert len(calls) == 1          # no pointless retries
+    assert llm.stats["quota_exhausted"] is True
 
 
 def test_second_identical_prompt_uses_cache(fake_gemini, monkeypatch):

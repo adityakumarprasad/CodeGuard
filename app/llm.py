@@ -27,7 +27,7 @@ client = OpenAI(
 )
 
 # Simple counters. They show up in the CLI output and evaluation report.
-stats = {"api_calls": 0, "cache_hits": 0, "retries": 0}
+stats = {"api_calls": 0, "cache_hits": 0, "retries": 0, "quota_exhausted": False}
 
 _lock = threading.Lock()          # makes pacing work even when the API serves 2 requests at once
 _last_call_time = 0.0
@@ -49,6 +49,7 @@ def _check_daily_limit():
         _today["date"] = today
         _today["count"] = 0
     if _today["count"] >= config.DAILY_CALL_LIMIT:
+        stats["quota_exhausted"] = True
         raise DailyLimitReached("Daily LLM call limit reached. Try again tomorrow.")
     _today["count"] += 1
 
@@ -103,6 +104,7 @@ def ask(prompt: str, max_tokens: int = 4000, name: str = "llm-call") -> str:
         except RateLimitError as e:              # HTTP 429
             if "PerDay" in str(e):               # daily quota is gone: retrying is pointless
                 _today["count"] = config.DAILY_CALL_LIMIT
+                stats["quota_exhausted"] = True
                 raise DailyLimitReached("Gemini free daily quota is used up.") from e
             last_error = e
             continue

@@ -81,6 +81,12 @@ def main():
         print(f"Evaluating {name} ...")
         code, truth = load_case(path)
         result = analyze(code, name, fix=args.fix)
+        if llm.stats["quota_exhausted"]:
+            # Without the AI, "Semgrep + AI" silently becomes "Semgrep alone": refuse to report fake numbers.
+            # Answers so far are cached, so re-running after the quota resets continues from here for free.
+            print(f"\nSTOPPED at {name}: the LLM daily quota is used up. No results written. "
+                  f"Re-run after the quota resets; cached answers make it resume where it stopped.")
+            sys.exit(1)
 
         semgrep_lines = [f.line for f in result["findings"]]
         ai_lines = ([f.line for f in result["findings"] if f.is_real]
