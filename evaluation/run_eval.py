@@ -87,7 +87,7 @@ def main():
                     + [i["line"] for i in result["logic_issues"]])
         s_correct, s_wrong, s_found = score(semgrep_lines, truth)
         a_correct, a_wrong, a_found = score(ai_lines, truth)
-        fixes = [f.fix for f in result["findings"] if f.fix]
+        fixes = [f.fix for f in result["findings"] if f.fix and f.fix["status"] != "covered"]
         fix_ok = sum(1 for fx in fixes if fx["status"] == "verified")
 
         for key, value in [("bugs", len(truth)), ("s_correct", s_correct), ("s_wrong", s_wrong),

@@ -47,12 +47,21 @@ def analyze(code: str, filename: str = "code.py", fix: bool = False) -> dict:
 
     # 4. Self-verifying fixes for confirmed findings
     if fix:
+        fixed_lines = []   # lines that already have a verified fix
         for finding in findings[:config.MAX_FINDINGS]:
-            if finding.is_real:
-                try:
-                    finding.fix = fixer.fix_finding(finding, lines, findings)
-                except Exception as e:
-                    finding.fix = {"status": "unverified", "attempts": 0, "reason": type(e).__name__}
+            if not finding.is_real:
+                continue
+            # Several Semgrep rules often flag the same bug: fix it once, don't spend quota 3 times
+            nearby = [n for n in fixed_lines if abs(n - finding.line) <= 2]
+            if nearby:
+                finding.fix = {"status": "covered", "by_line": nearby[0]}
+                continue
+            try:
+                finding.fix = fixer.fix_finding(finding, lines, findings)
+            except Exception as e:
+                finding.fix = {"status": "unverified", "attempts": 0, "reason": type(e).__name__}
+            if finding.fix["status"] == "verified":
+                fixed_lines.append(finding.line)
 
     return {"filename": filename, "findings": findings, "logic_issues": logic_issues}
 

@@ -29,6 +29,8 @@ def to_markdown(result: dict) -> str:
         if fix and fix["status"] == "verified":
             out.append(f"\n**Fix:** ✅ verified (syntax OK, Semgrep re-scan clean) after {fix['attempts']} attempt(s)")
             out += ["```diff", fix["diff"], "```"]
+        elif fix and fix["status"] == "covered":
+            out.append(f"\n**Fix:** ✅ same bug as line {fix['by_line']}, already fixed above")
         elif fix:
             out.append(f"\n**Fix:** ⚠️ could not be verified ({fix['reason']}). Fix this manually.")
         out.append("")
