@@ -6,6 +6,8 @@ Semgrep finds suspicious lines. Gemini decides which findings are real, looks fo
 
 [![CI](https://github.com/adityakumarprasad/CodeGuard/actions/workflows/ci.yml/badge.svg)](https://github.com/adityakumarprasad/CodeGuard/actions/workflows/ci.yml)
 
+**Live demo: [codeguard-latest.onrender.com](https://codeguard-latest.onrender.com)** (pick one of 7 vulnerable examples; API key `demo-key` is pre-filled; a review takes 1–2 minutes on the free instance)
+
 ---
 
 ## Table of contents
