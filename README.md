@@ -166,7 +166,7 @@ All of these are unit-tested with a **fake Gemini**: a 429 retry, a daily-quota 
 
 | Threat | Defense | Where |
 |---|---|---|
-| Someone drains the LLM quota | API key, per-IP rate limit, daily LLM budget | `api.py`, `llm.py` |
+| Someone drains the LLM quota | Per-IP rate limit, daily LLM budget; the demo uses a public key (`demo-key`), set your own `API_KEY` to make the API private | `api.py`, `llm.py` |
 | Timing attack on the API key | `secrets.compare_digest` on bytes | `api.py` |
 | Huge input / denial of service | Pydantic `max_length`, Semgrep `--timeout`, subprocess timeout, container CPU/memory limits | `api.py`, `scanner.py`, Docker |
 | Running malicious code | Scanned code is **never executed**: Semgrep reads it, `ast.parse` only parses it | `fixer.py` |
@@ -210,7 +210,7 @@ git clone https://github.com/adityakumarprasad/CodeGuard.git
 cd CodeGuard
 uv sync
 uv tool install semgrep          # installed separately so its dependencies never clash with ours
-cp .env.example .env             # then set GEMINI_API_KEY (and API_KEY for the web API)
+cp .env.example .env             # then set GEMINI_API_KEY (API_KEY defaults to the public demo-key)
 ```
 
 Pick a model with a generous free daily limit (check your limits at https://aistudio.google.com/rate-limit) and set `SECONDS_BETWEEN_CALLS = 60 / RPM`.

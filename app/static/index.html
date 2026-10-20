@@ -15,7 +15,7 @@
   <h1>CodeGuard AI</h1>
   <p>Paste Python code. Semgrep scans it, Gemini triages the findings, and fixes are verified before they're shown.</p>
   <p><small>Demo only: don't paste private code (it is sent to a free-tier LLM).</small></p>
-  <input id="key" type="password" placeholder="API key">
+  <input id="key" value="demo-key" placeholder="API key" autocomplete="off" spellcheck="false">
   <label><input id="fix" type="checkbox"> Generate verified fixes (slower)</label>
   <textarea id="code" placeholder="Paste Python code here"></textarea>
   <button id="scan">Scan</button>
@@ -26,7 +26,7 @@
       out.textContent = "Scanning... (free-tier pacing can take a minute)";
       const res = await fetch("/scan", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-API-Key": document.getElementById("key").value },
+        headers: { "Content-Type": "application/json", "X-API-Key": document.getElementById("key").value.trim().replace(/^API_KEY=/, "") },
         body: JSON.stringify({ code: document.getElementById("code").value, fix: document.getElementById("fix").checked }),
       });
       const data = await res.json();
