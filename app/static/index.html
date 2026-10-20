@@ -7,21 +7,28 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<!-- highlight.js colours the Python in the editor -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <style>
-/* Layout: a review console. Code on the left with severity marks in the gutter, findings on the right. */
+/* Layout: a review console. An IDE-style editor on the left with severity marks in the gutter, findings on the right. */
 :root {
-  --bg: #f3f4f7; --surface: #ffffff; --sunken: #eef0f4; --ink: #151823; --muted: #5d6377; --line: #dde1e9;
+  --bg: #f3f4f7; --surface: #ffffff; --ink: #151823; --muted: #5d6377; --line: #dde1e9; --sunken: #eef0f4;
   --accent: #0b7a84; --accent-soft: #dff2f3;
   --critical: #b3212b; --high: #d4501c; --medium: #a77a06; --low: #4a6fa5; --ok: #1d8752;
   --add-bg: #e3f5ea; --del-bg: #fbe6e4;
+  /* editor: always a dark IDE surface, in both themes */
+  --ed-bg: #12151d; --ed-gutter: #0e1118; --ed-text: #d8dceb; --ed-dim: #5d6680; --ed-line: #232838; --ed-bar: #191d28;
+  --syn-keyword: #c792ea; --syn-string: #a6da95; --syn-number: #f5a97f; --syn-comment: #6c7493;
+  --syn-func: #82aaff; --syn-builtin: #7dcfff; --syn-decorator: #eed49f; --syn-literal: #f38ba8;
   --font-display: "Familjen Grotesk", "Segoe UI", system-ui, sans-serif;
   --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --font-code: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --code-size: 13.5px; --code-line: 21px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0e1016; --surface: #161922; --sunken: #11141b; --ink: #e6e8ef; --muted: #959bb0; --line: #262a36;
+    --bg: #0e1016; --surface: #161922; --ink: #e6e8ef; --muted: #959bb0; --line: #262a36; --sunken: #11141b;
     --accent: #3cc3cc; --accent-soft: #10343a;
     --critical: #ff6b73; --high: #ff8d57; --medium: #e5b53c; --low: #86a8e0; --ok: #4fca8a;
     --add-bg: #12301f; --del-bg: #3a1a1a;
@@ -29,7 +36,7 @@
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0e1016; --surface: #161922; --sunken: #11141b; --ink: #e6e8ef; --muted: #959bb0; --line: #262a36;
+  --bg: #0e1016; --surface: #161922; --ink: #e6e8ef; --muted: #959bb0; --line: #262a36; --sunken: #11141b;
   --accent: #3cc3cc; --accent-soft: #10343a;
   --critical: #ff6b73; --high: #ff8d57; --medium: #e5b53c; --low: #86a8e0; --ok: #4fca8a;
   --add-bg: #12301f; --del-bg: #3a1a1a;
@@ -41,10 +48,10 @@ html { padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px)
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--font-body);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 [hidden] { display: none !important; }
-.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 64px; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-block: 28px 64px; }
 h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
 .eyebrow { font: 600 11px/1 var(--font-body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-code, .mono { font-family: var(--font-code); }
+.mono { font-family: var(--font-code); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* header */
@@ -56,44 +63,75 @@ code, .mono { font-family: var(--font-code); }
 .brand p { margin: 0; color: var(--muted); font-size: 14px; }
 .flow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
 .flow span { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
-.flow b { color: var(--line); font-weight: 400; }
+.flow b { color: var(--muted); font-weight: 400; }
 
-/* console grid */
-.console { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 20px; align-items: start; }
-@media (max-width: 960px) { .console { grid-template-columns: minmax(0, 1fr); } }
+.console { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 980px) { .console { grid-template-columns: minmax(0, 1fr); } }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; min-width: 0; }
-.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--line); }
-.panel-body { padding: 18px; }
-.tabs { display: flex; gap: 4px; background: var(--sunken); padding: 3px; border-radius: 9px; }
-.tabs button { border: 0; background: transparent; color: var(--muted); font: 500 13px var(--font-body); padding: 5px 12px; border-radius: 7px; cursor: pointer; }
-.tabs button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-.link { border: 0; background: none; color: var(--accent); font: 500 13px var(--font-body); cursor: pointer; padding: 0; }
 
-/* editor */
-textarea { display: block; width: 100%; min-height: 460px; resize: vertical; border: 0; padding: 16px 18px; background: var(--sunken); color: var(--ink);
-  font: 13.5px/1.6 var(--font-code); tab-size: 4; white-space: pre; overflow: auto; }
-textarea:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
-.annotated { background: var(--sunken); max-height: 560px; overflow: auto; font: 13.5px/1.6 var(--font-code); padding-block: 12px; }
-.loc { display: grid; grid-template-columns: 8px 44px minmax(0, 1fr); align-items: start; }
-.loc .sev { align-self: stretch; }
-.loc .n { color: var(--muted); text-align: right; padding-right: 14px; user-select: none; }
-.loc pre { margin: 0; font: inherit; white-space: pre; padding-right: 18px; }
-.loc.hit { background: color-mix(in srgb, var(--sev-color) 12%, transparent); cursor: pointer; }
-.loc.hit .sev { background: var(--sev-color); }
-.loc.flash { outline: 2px solid var(--sev-color); outline-offset: -2px; }
+/* example picker */
+.picker { padding: 14px 16px; display: grid; gap: 8px; border-bottom: 1px solid var(--line); }
+.picker-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.picker label { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+select { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--sunken); color: var(--ink); font: 500 14px var(--font-body); }
+select:focus { border-color: var(--accent); outline: none; }
+.picker p { margin: 0; font-size: 13px; color: var(--muted); }
+.picker p b { color: var(--ink); font-weight: 600; }
 
-.controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; padding: 16px 18px; border-top: 1px solid var(--line); }
-@media (max-width: 560px) { .controls { grid-template-columns: minmax(0, 1fr); } }
-.opts { display: flex; gap: 14px; flex-wrap: wrap; align-items: end; }
+/* IDE editor */
+.ide { background: var(--ed-bg); }
+.ide-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--ed-bar); border-bottom: 1px solid var(--ed-line); }
+.dots { display: flex; gap: 6px; } .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--ed-line); }
+.file-tab { display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 6px; background: var(--ed-bg); color: var(--ed-text); font: 500 12.5px var(--font-code); }
+.file-tab svg { width: 13px; height: 13px; }
+.file-tab input { width: 140px; border: 0; background: transparent; color: var(--ed-text); font: inherit; padding: 0; }
+.file-tab input:focus { outline: none; border-bottom: 1px solid var(--syn-func); }
+.ide-actions { margin-left: auto; display: flex; gap: 6px; }
+.ide-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--ed-line); background: transparent; color: var(--ed-text); font: 500 12.5px var(--font-body); padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+.ide-btn:hover { background: var(--ed-line); }
+.ide-btn svg { width: 14px; height: 14px; }
+
+.editor { display: grid; grid-template-columns: auto minmax(0, 1fr); height: 520px; position: relative; overflow: hidden; }
+.gutter { background: var(--ed-gutter); color: var(--ed-dim); font: var(--code-size)/var(--code-line) var(--font-code); text-align: right; overflow: hidden; user-select: none; border-right: 1px solid var(--ed-line); }
+.gutter-inner { padding: 14px 0; will-change: transform; }
+.gutter div { height: var(--code-line); padding: 0 12px 0 18px; position: relative; font-variant-numeric: tabular-nums; }
+.gutter div.flagged { color: var(--ed-text); cursor: pointer; }
+.gutter div.flagged::before { content: ""; position: absolute; left: 6px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--sev-color); }
+.code-area { position: relative; overflow: hidden; }
+.layer { position: absolute; top: 0; left: 0; will-change: transform; pointer-events: none; }
+.layer pre { margin: 0; padding: 14px 16px; font: var(--code-size)/var(--code-line) var(--font-code); color: var(--ed-text); white-space: pre; tab-size: 4; }
+.hl-line { position: absolute; left: 0; right: -4000px; height: var(--code-line); background: color-mix(in srgb, var(--sev-color) 18%, transparent); border-left: 3px solid var(--sev-color); }
+.hl-line.flash { background: color-mix(in srgb, var(--sev-color) 38%, transparent); transition: background .6s ease; }
+textarea#code { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; resize: none; padding: 14px 16px;
+  font: var(--code-size)/var(--code-line) var(--font-code); white-space: pre; tab-size: 4; overflow: auto;
+  background: transparent; color: transparent; caret-color: #ffffff; outline: none; }
+textarea#code::selection { background: rgba(130, 170, 255, .28); color: transparent; }
+.ide-status { display: flex; gap: 16px; flex-wrap: wrap; padding: 6px 12px; background: var(--ed-bar); border-top: 1px solid var(--ed-line); color: var(--ed-dim); font: 12px var(--font-code); }
+.ide-status .stale { color: var(--syn-decorator); }
+
+/* syntax colours */
+.hljs-keyword, .hljs-meta .hljs-keyword { color: var(--syn-keyword); }
+.hljs-string, .hljs-subst { color: var(--syn-string); }
+.hljs-number { color: var(--syn-number); }
+.hljs-comment { color: var(--syn-comment); font-style: italic; }
+.hljs-title.function_, .hljs-title { color: var(--syn-func); }
+.hljs-built_in { color: var(--syn-builtin); }
+.hljs-meta { color: var(--syn-decorator); }
+.hljs-literal { color: var(--syn-literal); }
+.hljs-params { color: var(--ed-text); }
+
+/* run controls */
+.controls { display: flex; gap: 14px; align-items: end; justify-content: space-between; flex-wrap: wrap; padding: 14px 16px; }
+.opts { display: flex; gap: 16px; flex-wrap: wrap; align-items: end; }
 label.field { display: grid; gap: 5px; font-size: 12.5px; color: var(--muted); font-weight: 500; }
-input[type="text"] { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--sunken); color: var(--ink); font: 13.5px var(--font-code); width: 150px; }
-input[type="text"]:focus { border-color: var(--accent); outline: none; }
+input.key { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--sunken); color: var(--ink); font: 13.5px var(--font-code); width: 150px; }
+input.key:focus { border-color: var(--accent); outline: none; }
 label.check { display: flex; gap: 8px; align-items: center; font-size: 13.5px; cursor: pointer; padding-bottom: 7px; }
 input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
-button.primary { padding: 11px 20px; border: 0; border-radius: 9px; background: var(--accent); color: var(--surface); font: 600 15px var(--font-body); cursor: pointer; white-space: nowrap; }
+button.primary { padding: 11px 22px; border: 0; border-radius: 9px; background: var(--accent); color: var(--surface); font: 600 15px var(--font-body); cursor: pointer; white-space: nowrap; }
 button.primary:disabled { opacity: .55; cursor: progress; }
-.note { padding: 0 18px 16px; margin: 0; font-size: 12px; color: var(--muted); }
-.error { color: var(--critical); font-size: 13px; margin: 0; padding: 0 18px 16px; }
+.note { padding: 0 16px 16px; margin: 0; font-size: 12px; color: var(--muted); }
+.error { color: var(--critical); font-size: 13px; margin: 0; padding: 0 16px 14px; }
 
 /* results */
 .results { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -106,19 +144,18 @@ button.primary:disabled { opacity: .55; cursor: progress; }
 .funnel div { background: var(--surface); padding: 12px 16px; }
 .funnel b { display: block; font: 600 22px var(--font-code); }
 .funnel span { font-size: 12px; color: var(--muted); }
-
 .group-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 4px 2px 0; }
 .group-title h3 { font-size: 16px; font-weight: 700; }
 .group-title span { font-size: 12.5px; color: var(--muted); }
-
+.link { border: 0; background: none; color: var(--accent); font: 500 13px var(--font-body); cursor: pointer; padding: 0; }
 .finding { border: 1px solid var(--line); border-left: 4px solid var(--sev-color); border-radius: 10px; background: var(--surface); padding: 14px 16px; display: grid; gap: 8px; min-width: 0; }
 .f-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .sev-tag { font: 600 11px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--sev-color); }
 .rule { font: 500 13.5px var(--font-code); overflow-wrap: anywhere; }
-.where { margin-left: auto; font: 12.5px var(--font-code); color: var(--muted); }
-.where button { border: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; padding: 0; }
+.where { margin-left: auto; }
+.where button { border: 0; background: none; color: var(--accent); font: 12.5px var(--font-code); cursor: pointer; padding: 0; }
 .finding p { margin: 0; font-size: 14px; }
-.finding p code { font-size: 12.5px; padding: 1px 5px; border-radius: 5px; background: var(--sunken); }
+.finding p code { font: 12.5px var(--font-code); padding: 1px 5px; border-radius: 5px; background: var(--sunken); }
 .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; width: fit-content; }
 .badge.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
 .badge.warn { background: color-mix(in srgb, var(--medium) 16%, transparent); color: var(--medium); }
@@ -126,26 +163,21 @@ button.primary:disabled { opacity: .55; cursor: progress; }
 .badge.ai { background: var(--accent-soft); color: var(--accent); }
 .diff { margin: 0; border-radius: 8px; background: var(--sunken); font: 12.5px/1.55 var(--font-code); overflow-x: auto; padding-block: 6px; }
 .diff div { padding: 0 12px; white-space: pre; }
-.diff .add { background: var(--add-bg); }
-.diff .del { background: var(--del-bg); }
-.diff .hunk { color: var(--muted); }
-
+.diff .add { background: var(--add-bg); } .diff .del { background: var(--del-bg); } .diff .hunk { color: var(--muted); }
 details.dismissed { border: 1px dashed var(--line); border-radius: 10px; padding: 12px 16px; }
 details.dismissed summary { cursor: pointer; font-weight: 600; font-size: 14px; }
 details.dismissed ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 13.5px; display: grid; gap: 6px; }
-
 .empty, .working { padding: 22px; }
 .empty h2, .working h2 { font-size: 20px; font-weight: 700; }
 .empty p, .working p { color: var(--muted); margin: 8px 0 0; max-width: 56ch; }
 .steps { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 10px; font-size: 14px; }
 .steps li { display: flex; gap: 10px; align-items: center; }
-.steps li::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+.steps li::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s ease-in-out infinite; flex: none; }
 .steps li:nth-child(2)::before { animation-delay: .2s; } .steps li:nth-child(3)::before { animation-delay: .4s; } .steps li:nth-child(4)::before { animation-delay: .6s; }
 @keyframes pulse { 50% { opacity: .25; } }
 .timer { font: 600 13px var(--font-code); color: var(--accent); }
 .foot { font-size: 12px; color: var(--muted); margin-top: 6px; }
-
-@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
@@ -167,19 +199,43 @@ details.dismissed ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted)
 
   <div class="console">
     <section class="panel" aria-label="Code">
-      <div class="panel-head">
-        <div class="tabs" role="group" aria-label="Code view">
-          <button id="tabEdit" type="button" aria-pressed="true">Edit</button>
-          <button id="tabReview" type="button" aria-pressed="false" disabled>Annotated</button>
+      <div class="picker">
+        <div class="picker-row">
+          <label for="example">Example</label>
+          <select id="example"></select>
         </div>
-        <button class="link" id="loadExample" type="button">Load vulnerable example</button>
+        <p id="exampleDesc"></p>
       </div>
-      <textarea id="code" spellcheck="false" aria-label="Python code to review"></textarea>
-      <div class="annotated" id="annotated" hidden></div>
+
+      <div class="ide">
+        <div class="ide-bar">
+          <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="file-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+            <input id="filename" value="app.py" spellcheck="false" aria-label="File name">
+          </div>
+          <div class="ide-actions">
+            <button class="ide-btn" id="copyCode" type="button" aria-label="Copy code">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>Copy</span>
+            </button>
+            <button class="ide-btn" id="clearCode" type="button">Clear</button>
+          </div>
+        </div>
+        <div class="editor">
+          <div class="gutter" id="gutter"><div class="gutter-inner" id="gutterInner"></div></div>
+          <div class="code-area">
+            <div class="layer" id="layer"><div id="marks"></div><pre><code id="highlighted"></code></pre></div>
+            <textarea id="code" spellcheck="false" autocomplete="off" wrap="off" aria-label="Python code to review"></textarea>
+          </div>
+        </div>
+        <div class="ide-status">
+          <span>Python</span><span id="statusLines"></span><span id="statusCursor"></span><span id="statusMarks"></span>
+        </div>
+      </div>
+
       <form class="controls" id="scanForm" novalidate>
         <div class="opts">
-          <label class="field" for="filename">File name <input id="filename" type="text" value="app.py" spellcheck="false"></label>
-          <label class="field" for="key">API key <input id="key" type="text" value="demo-key" autocomplete="off" spellcheck="false"></label>
+          <label class="field" for="key">API key <input class="key" id="key" value="demo-key" autocomplete="off" spellcheck="false"></label>
           <label class="check" for="fix"><input id="fix" type="checkbox"> Write verified fixes</label>
         </div>
         <button class="primary" id="scan" type="submit">Review code</button>
@@ -191,13 +247,13 @@ details.dismissed ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted)
     <section class="results" id="results" aria-live="polite">
       <div class="panel empty" id="emptyState">
         <h2>Findings appear here</h2>
-        <p>The example on the left is a small Flask app with SQL injection, command injection and an unprotected admin route. Choose "Review code" to see which findings are real, what the AI spots that pattern rules miss, and fixes that passed a Semgrep re-scan.</p>
+        <p>Pick an example above, or paste your own Python, then choose "Review code". You'll see which findings are real, what the AI spots that pattern rules miss, and fixes that passed a Semgrep re-scan.</p>
       </div>
 
       <div class="panel working" id="workingState" hidden>
         <h2>Reviewing your code <span class="timer" id="timer">0s</span></h2>
         <p>Free-tier requests are paced a few seconds apart, so this takes a moment.</p>
-        <ul class="steps" id="workSteps">
+        <ul class="steps">
           <li>Semgrep scans every line with vendored rules</li>
           <li>AI checks each finding: real or false positive?</li>
           <li>AI looks for logic flaws pattern rules can't see</li>
@@ -230,7 +286,9 @@ details.dismissed ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted)
   </div>
 </div>
 
-<script type="text/plain" id="exampleCode">import os
+<!-- Example programs. Each is deliberately vulnerable (except "Safe code") so you can see what CodeGuard does. -->
+<script type="text/plain" class="example" data-file="web_app.py" data-title="Flask web app: injection + admin route"
+  data-desc="<b>Semgrep catches</b> the SQL and command injection. <b>Left for the AI:</b> the admin reset route has no access check.">import os
 import sqlite3
 from flask import Flask, request
 
@@ -256,51 +314,249 @@ def reset_database():
     os.remove("app.db")
     return "reset"
 </script>
+<script type="text/plain" class="example" data-file="calculator.py" data-title="Code execution: eval, exec, YAML"
+  data-desc="<b>Semgrep catches</b> all three: eval and exec on user input, and an unsafe YAML loader that can build arbitrary objects.">import yaml
+from flask import Flask, request
+
+app = Flask(__name__)
+
+
+@app.route("/calc")
+def calculate():
+    expression = request.args.get("expr", "1+1")
+    return {"result": eval(expression)}
+
+
+@app.route("/run-plugin", methods=["POST"])
+def run_plugin():
+    plugin_source = request.form["source"]
+    exec(plugin_source)
+    return "plugin loaded"
+
+
+@app.route("/import-settings", methods=["POST"])
+def import_settings():
+    settings = yaml.load(request.data, Loader=yaml.Loader)
+    return {"keys": list(settings)}
+</script>
+<script type="text/plain" class="example" data-file="files.py" data-title="Files and deserialization"
+  data-desc="<b>Semgrep catches</b> the open() path traversal. <b>Left for the AI:</b> the send_file traversal and pickle.loads on request data.">import os
+import pickle
+from flask import Flask, request, send_file
+
+app = Flask(__name__)
+UPLOAD_DIR = "/srv/uploads"
+
+
+@app.route("/download")
+def download():
+    filename = request.args.get("file")
+    return send_file(os.path.join(UPLOAD_DIR, filename))
+
+
+@app.route("/notes")
+def read_note():
+    path = request.args.get("path")
+    with open(path) as f:
+        return f.read()
+
+
+@app.route("/session/restore", methods=["POST"])
+def restore_session():
+    session_data = pickle.loads(request.data)
+    return {"user": session_data.get("user")}
+</script>
+<script type="text/plain" class="example" data-file="billing.py" data-title="Secrets and weak crypto"
+  data-desc="<b>Semgrep catches</b> MD5 password hashing and debug mode. <b>Left for the AI:</b> hardcoded credentials and a guessable reset token.">import hashlib
+import random
+import requests
+from flask import Flask
+
+app = Flask(__name__)
+
+PAYMENTS_TOKEN = "payments-prod-7Hq2xL9vR4mT8kW3zN6bY1cF5dJ0sG"
+DB_PASSWORD = "Winter2026!"
+
+
+def hash_password(password):
+    return hashlib.md5(password.encode()).hexdigest()
+
+
+def new_reset_token():
+    return str(random.randint(100000, 999999))
+
+
+def charge(amount):
+    return requests.post("https://api.example.com/charge",
+                         headers={"Authorization": PAYMENTS_TOKEN},
+                         json={"amount": amount}, timeout=10)
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", debug=True)
+</script>
+<script type="text/plain" class="example" data-file="orders.py" data-title="Access control (logic flaws)"
+  data-desc="<b>Semgrep finds nothing here.</b> Everything is left for the AI: reading another customer's order, deleting users without an admin check, and overwriting your own role.">from flask import Flask, request, session
+
+app = Flask(__name__)
+ORDERS = {101: {"owner": "alice", "total": 120}, 102: {"owner": "bob", "total": 75}}
+USERS = {"alice": {"role": "admin"}, "bob": {"role": "customer"}}
+
+
+@app.route("/orders/<int:order_id>")
+def get_order(order_id):
+    if "user" not in session:
+        return "login required", 401
+    return ORDERS[order_id]
+
+
+@app.route("/admin/users/<name>", methods=["DELETE"])
+def delete_user(name):
+    USERS.pop(name, None)
+    return "deleted"
+
+
+@app.route("/profile", methods=["POST"])
+def update_profile():
+    user = USERS[session["user"]]
+    user.update(request.json)
+    return user
+</script>
+<script type="text/plain" class="example" data-file="links.py" data-title="SSRF and open redirect"
+  data-desc="<b>Semgrep catches</b> the server-side request forgery. <b>Left for the AI:</b> the open redirect in /go.">import requests
+from flask import Flask, redirect, request
+
+app = Flask(__name__)
+
+
+@app.route("/preview")
+def preview_link():
+    url = request.args.get("url")
+    page = requests.get(url, timeout=5)
+    return page.text[:500]
+
+
+@app.route("/go")
+def go():
+    return redirect(request.args.get("next", "/"))
+</script>
+<script type="text/plain" class="example" data-file="safe.py" data-title="Safe code (false-positive traps)"
+  data-desc="Nothing here is exploitable, but <b>Semgrep still raises 3 findings</b>. Watch the AI dismiss them: shlex.quote neutralises the shell input, and MD5 only names cache files.">import hashlib
+import os
+import shlex
+import sqlite3
+from flask import Flask, request
+
+app = Flask(__name__)
+CACHE_DIR = "/tmp/page-cache"
+
+
+@app.route("/user")
+def get_user():
+    name = request.args.get("name")
+    conn = sqlite3.connect("app.db")
+    return {"rows": conn.execute("SELECT * FROM users WHERE name = ?", (name,)).fetchall()}
+
+
+@app.route("/ping")
+def ping():
+    host = request.args.get("host", "")
+    os.system("ping -c 1 " + shlex.quote(host))
+    return "done"
+
+
+def cache_path(url):
+    return os.path.join(CACHE_DIR, hashlib.md5(url.encode()).hexdigest() + ".html")
+</script>
 
 <script>
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const prose = (text) => esc(text).replace(/`([^`]+)`/g, "<code>$1</code>");
   const RANK = { critical: 0, high: 1, medium: 2, low: 3 };
-  const sevOf = (s) => (String(s || "medium").toLowerCase() in RANK ? String(s).toLowerCase() : "medium");
+  const sevOf = (s) => { const v = String(s || "medium").toLowerCase(); return v in RANK ? v : "medium"; };
   const sevColor = (s) => `var(--${sevOf(s)})`;
   const shortRule = (id) => String(id).split(".").pop();
-  const prose = (text) => esc(text).replace(/`([^`]+)`/g, "<code>$1</code>");
+  const LINE = 21, PAD = 14;                       // must match --code-line and the editor's top padding
+  const EXAMPLES = [...document.querySelectorAll("script.example")].map((el) => ({
+    title: el.dataset.title, desc: el.dataset.desc, file: el.dataset.file, code: el.textContent }));
+  let marks = new Map();                           // line -> { severity, label }
+  let reviewedCode = null, last = null;
 
-  // Several Semgrep rules often flag the same bug: findings within 2 lines of each other count as one bug
-  function countBugs(lines) {
-    const sorted = [...lines].sort((a, b) => a - b);
-    let bugs = 0, lastLine = -99;
-    for (const n of sorted) { if (n - lastLine > 2) bugs++; lastLine = n; }
-    return bugs;
-  }
-  let last = null;                                      // { data, code } of the latest review
+  /* ---------- editor ---------- */
+  const code = $("code");
 
-  $("code").value = $("exampleCode").textContent;
-  $("loadExample").onclick = () => { $("code").value = $("exampleCode").textContent; showTab("edit"); };
-
-  function showTab(which) {
-    const review = which === "review";
-    $("tabEdit").setAttribute("aria-pressed", String(!review));
-    $("tabReview").setAttribute("aria-pressed", String(review));
-    $("code").hidden = review; $("annotated").hidden = !review;
-  }
-  $("tabEdit").onclick = () => showTab("edit");
-  $("tabReview").onclick = () => showTab("review");
-
-  function renderAnnotated(code, marks) {
-    $("annotated").innerHTML = code.replace(/\n$/, "").split("\n").map((text, i) => {
-      const n = i + 1, m = marks.get(n);
-      const style = m ? ` style="--sev-color:${sevColor(m.severity)}"` : "";
-      const title = m ? ` title="${esc(m.label)}"` : "";
-      return `<div class="loc${m ? " hit" : ""}" id="L${n}"${style}${title}><span class="sev"></span><span class="n">${n}</span><pre>${esc(text) || " "}</pre></div>`;
+  function renderEditor() {
+    const text = code.value;
+    const lines = text.split("\n").length;
+    $("highlighted").innerHTML = (window.hljs ? hljs.highlight(text, { language: "python", ignoreIllegals: true }).value : esc(text)) + "\n";
+    $("gutterInner").innerHTML = Array.from({ length: lines }, (_, i) => {
+      const m = marks.get(i + 1);
+      return m ? `<div class="flagged" data-line="${i + 1}" style="--sev-color:${sevColor(m.severity)}" title="${esc(m.label)}">${i + 1}</div>` : `<div>${i + 1}</div>`;
     }).join("");
+    $("marks").innerHTML = [...marks].map(([n, m]) =>
+      `<div class="hl-line" id="hl${n}" style="top:${PAD + (n - 1) * LINE}px;--sev-color:${sevColor(m.severity)}"></div>`).join("");
+    $("statusLines").textContent = `${lines} lines`;
+    $("statusMarks").textContent = marks.size ? `${marks.size} marked line${marks.size === 1 ? "" : "s"}` : "";
+    syncScroll();
   }
+
+  function syncScroll() {
+    $("layer").style.transform = `translate(${-code.scrollLeft}px, ${-code.scrollTop}px)`;
+    $("gutterInner").style.transform = `translateY(${-code.scrollTop}px)`;
+  }
+
+  function updateCursor() {
+    const before = code.value.slice(0, code.selectionStart).split("\n");
+    $("statusCursor").textContent = `Ln ${before.length}, Col ${before[before.length - 1].length + 1}`;
+  }
+
+  code.addEventListener("scroll", syncScroll);
+  code.addEventListener("input", () => {
+    if (marks.size && code.value !== reviewedCode) {   // markers belong to the reviewed code only
+      marks = new Map();
+      $("statusMarks").innerHTML = `<span class="stale">Code changed since the review; markers cleared</span>`;
+    }
+    renderEditor(); updateCursor();
+  });
+  ["keyup", "click"].forEach((ev) => code.addEventListener(ev, updateCursor));
+  code.addEventListener("keydown", (e) => {          // Tab inserts 4 spaces, like an IDE
+    if (e.key !== "Tab" || e.shiftKey) return;
+    e.preventDefault();
+    const { selectionStart: s, selectionEnd: end } = code;
+    code.setRangeText("    ", s, end, "end");
+    code.dispatchEvent(new Event("input"));
+  });
 
   function jumpTo(line) {
-    showTab("review");
-    const row = $("L" + line); if (!row) return;
-    row.scrollIntoView({ block: "center", behavior: "smooth" });
-    row.classList.add("flash"); setTimeout(() => row.classList.remove("flash"), 1400);
+    code.scrollTop = Math.max(0, (line - 1) * LINE - code.clientHeight / 3);
+    syncScroll();
+    const hl = $("hl" + line);
+    if (hl) { hl.classList.add("flash"); setTimeout(() => hl.classList.remove("flash"), 900); }
+  }
+
+  $("copyCode").onclick = async () => {
+    const label = $("copyCode").querySelector("span");
+    try { await navigator.clipboard.writeText(code.value); label.textContent = "Copied"; }
+    catch { code.focus(); code.select(); label.textContent = "Press Ctrl+C"; }
+    setTimeout(() => (label.textContent = "Copy"), 1600);
+  };
+  $("clearCode").onclick = () => { code.value = ""; marks = new Map(); renderEditor(); code.focus(); };
+
+  /* ---------- examples ---------- */
+  $("example").innerHTML = EXAMPLES.map((ex, i) => `<option value="${i}">${esc(ex.title)}</option>`).join("");
+  function loadExample(i) {
+    const ex = EXAMPLES[i];
+    code.value = ex.code; $("filename").value = ex.file; $("exampleDesc").innerHTML = ex.desc;
+    marks = new Map(); code.scrollTop = 0; code.scrollLeft = 0; renderEditor(); updateCursor();
+  }
+  $("example").onchange = (e) => loadExample(+e.target.value);
+
+  /* ---------- results ---------- */
+  function countBugs(lines) {                       // findings within 2 lines of each other are one bug
+    let bugs = 0, prev = -99;
+    for (const n of [...lines].sort((a, b) => a - b)) { if (n - prev > 2) bugs++; prev = n; }
+    return bugs;
   }
 
   function renderDiff(diff) {
@@ -317,20 +573,18 @@ def reset_database():
     return `<span class="badge warn">Fix could not be verified (${esc(fix.reason)}). Fix this one by hand.</span>`;
   }
 
-  function renderResult(data, code) {
-    last = { data, code };
-    const result = data.result;
-    const findings = result.findings || [];
+  function renderResult(data, reviewed) {
+    last = data; reviewedCode = reviewed;
+    const result = data.result, findings = result.findings || [];
     const real = findings.filter((f) => f.is_real).sort((a, b) => RANK[sevOf(a.severity_ai)] - RANK[sevOf(b.severity_ai)]);
     const dismissed = findings.filter((f) => !f.is_real);
     const logic = (result.logic_issues || []).slice().sort((a, b) => RANK[sevOf(a.severity)] - RANK[sevOf(b.severity)]);
     const fixesTried = real.filter((f) => f.fix && f.fix.status !== "covered");
     const verified = fixesTried.filter((f) => f.fix.status === "verified").length;
-
-    const all = [...real.map((f) => sevOf(f.severity_ai)), ...logic.map((i) => sevOf(i.severity))];
-    const worst = all.sort((a, b) => RANK[a] - RANK[b])[0];
     const semgrepBugs = countBugs(real.map((f) => f.line));
     const total = semgrepBugs + logic.length;
+    const worst = [...real.map((f) => sevOf(f.severity_ai)), ...logic.map((i) => sevOf(i.severity))].sort((a, b) => RANK[a] - RANK[b])[0];
+
     document.documentElement.style.setProperty("--verdict-color", total ? sevColor(worst) : "var(--ok)");
     $("verdictFile").textContent = result.filename;
     $("verdictText").innerHTML = total
@@ -361,36 +615,36 @@ def reset_database():
 
     $("dismissedGroup").hidden = !dismissed.length;
     $("dismissedTitle").textContent = `${dismissed.length} Semgrep finding${dismissed.length === 1 ? "" : "s"} dismissed as false positive${dismissed.length === 1 ? "" : "s"}`;
-    $("dismissed").innerHTML = dismissed.map((f) => `<li><span class="mono">${esc(shortRule(f.rule_id))}</span> (line ${f.line}): ${esc(f.explanation)}</li>`).join("");
+    $("dismissed").innerHTML = dismissed.map((f) => `<li><span class="mono">${esc(shortRule(f.rule_id))}</span> (line ${f.line}): ${prose(f.explanation)}</li>`).join("");
 
-    const marks = new Map();
+    marks = new Map();
     for (const f of real) if (!marks.has(f.line)) marks.set(f.line, { severity: f.severity_ai, label: shortRule(f.rule_id) });
     for (const i of logic) if (!marks.has(i.line)) marks.set(i.line, { severity: i.severity, label: i.title });
-    renderAnnotated(code, marks);
-    $("tabReview").disabled = false; showTab("review");
+    if (code.value === reviewed) renderEditor();
 
     $("emptyState").hidden = true; $("workingState").hidden = true; $("report").hidden = false;
   }
 
-  $("results").addEventListener("click", (e) => { const line = e.target.closest("[data-line]"); if (line) jumpTo(+line.dataset.line); });
-  $("annotated").addEventListener("click", (e) => {
-    const row = e.target.closest(".loc.hit"); if (!row) return;
-    const btn = document.querySelector(`#report [data-line="${row.id.slice(1)}"]`);
-    if (btn) btn.closest(".finding").scrollIntoView({ block: "center", behavior: "smooth" });
+  // findings -> code, and gutter marks -> findings
+  $("results").addEventListener("click", (e) => { const b = e.target.closest("[data-line]"); if (b) jumpTo(+b.dataset.line); });
+  $("gutter").addEventListener("click", (e) => {
+    const g = e.target.closest(".flagged"); if (!g) return;
+    const card = document.querySelector(`#report [data-line="${g.dataset.line}"]`);
+    if (card) card.closest(".finding").scrollIntoView({ block: "center", behavior: "smooth" });
   });
 
   $("copyReport").onclick = async () => {
     if (!last) return;
-    try { await navigator.clipboard.writeText(last.data.report_markdown); $("copyReport").textContent = "Copied"; }
+    try { await navigator.clipboard.writeText(last.report_markdown); $("copyReport").textContent = "Copied"; }
     catch { $("copyReport").textContent = "Copy failed"; }
     setTimeout(() => ($("copyReport").textContent = "Copy Markdown report"), 1600);
   };
 
   $("scanForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const code = $("code").value;
+    const source = code.value;
     $("error").hidden = true;
-    if (!code.trim()) { $("error").textContent = "Paste some Python code first."; $("error").hidden = false; return; }
+    if (!source.trim()) { $("error").textContent = "Paste some Python code first, or pick an example."; $("error").hidden = false; return; }
     const key = $("key").value.trim().replace(/^API_KEY=/, "");
     $("scan").disabled = true; $("scan").textContent = "Reviewing…";
     $("fixStep").hidden = !$("fix").checked;
@@ -399,13 +653,13 @@ def reset_database():
     const tick = setInterval(() => ($("timer").textContent = Math.round((Date.now() - started) / 1000) + "s"), 1000);
     try {
       const res = await fetch("/scan", { method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": key },
-        body: JSON.stringify({ code, filename: $("filename").value.trim() || "app.py", fix: $("fix").checked }) });
+        body: JSON.stringify({ code: source, filename: $("filename").value.trim() || "app.py", fix: $("fix").checked }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(res.status === 401 ? "That API key isn't accepted. Use demo-key, or the key from your own .env."
         : res.status === 429 ? "Too many reviews in one minute. Wait a moment and try again."
         : res.status === 422 ? "The code is empty or too long (100,000 characters at most)."
         : "The review failed: " + (data.detail || res.statusText));
-      renderResult(data, code);
+      renderResult(data, source);
     } catch (err) {
       $("workingState").hidden = true; (last ? $("report") : $("emptyState")).hidden = false;
       $("error").textContent = err.message; $("error").hidden = false;
@@ -413,6 +667,8 @@ def reset_database():
       clearInterval(tick); $("scan").disabled = false; $("scan").textContent = "Review code";
     }
   });
+
+  loadExample(0);
 </script>
 </body>
 </html>
