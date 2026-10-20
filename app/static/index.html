@@ -1,37 +1,418 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CodeGuard AI</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 16px; }
-    textarea { width: 100%; height: 300px; font-family: monospace; }
-    pre { white-space: pre-wrap; background: #f4f4f4; padding: 12px; border-radius: 6px; }
-    button { padding: 8px 20px; margin-top: 8px; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CodeGuard AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a review console. Code on the left with severity marks in the gutter, findings on the right. */
+:root {
+  --bg: #f3f4f7; --surface: #ffffff; --sunken: #eef0f4; --ink: #151823; --muted: #5d6377; --line: #dde1e9;
+  --accent: #0b7a84; --accent-soft: #dff2f3;
+  --critical: #b3212b; --high: #d4501c; --medium: #a77a06; --low: #4a6fa5; --ok: #1d8752;
+  --add-bg: #e3f5ea; --del-bg: #fbe6e4;
+  --font-display: "Familjen Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-code: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1016; --surface: #161922; --sunken: #11141b; --ink: #e6e8ef; --muted: #959bb0; --line: #262a36;
+    --accent: #3cc3cc; --accent-soft: #10343a;
+    --critical: #ff6b73; --high: #ff8d57; --medium: #e5b53c; --low: #86a8e0; --ok: #4fca8a;
+    --add-bg: #12301f; --del-bg: #3a1a1a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1016; --surface: #161922; --sunken: #11141b; --ink: #e6e8ef; --muted: #959bb0; --line: #262a36;
+  --accent: #3cc3cc; --accent-soft: #10343a;
+  --critical: #ff6b73; --high: #ff8d57; --medium: #e5b53c; --low: #86a8e0; --ok: #4fca8a;
+  --add-bg: #12301f; --del-bg: #3a1a1a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+[hidden] { display: none !important; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 64px; }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+.eyebrow { font: 600 11px/1 var(--font-body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+code, .mono { font-family: var(--font-code); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* header */
+.top { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+.brand { display: flex; gap: 14px; align-items: center; }
+.mark { width: 42px; height: 42px; border-radius: 11px; background: var(--accent); display: grid; place-items: center; flex: none; }
+.mark svg { width: 22px; height: 22px; }
+.brand h1 { font-size: 28px; font-weight: 700; letter-spacing: -.01em; }
+.brand p { margin: 0; color: var(--muted); font-size: 14px; }
+.flow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.flow span { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.flow b { color: var(--line); font-weight: 400; }
+
+/* console grid */
+.console { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 960px) { .console { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; min-width: 0; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.panel-body { padding: 18px; }
+.tabs { display: flex; gap: 4px; background: var(--sunken); padding: 3px; border-radius: 9px; }
+.tabs button { border: 0; background: transparent; color: var(--muted); font: 500 13px var(--font-body); padding: 5px 12px; border-radius: 7px; cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.link { border: 0; background: none; color: var(--accent); font: 500 13px var(--font-body); cursor: pointer; padding: 0; }
+
+/* editor */
+textarea { display: block; width: 100%; min-height: 460px; resize: vertical; border: 0; padding: 16px 18px; background: var(--sunken); color: var(--ink);
+  font: 13.5px/1.6 var(--font-code); tab-size: 4; white-space: pre; overflow: auto; }
+textarea:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.annotated { background: var(--sunken); max-height: 560px; overflow: auto; font: 13.5px/1.6 var(--font-code); padding-block: 12px; }
+.loc { display: grid; grid-template-columns: 8px 44px minmax(0, 1fr); align-items: start; }
+.loc .sev { align-self: stretch; }
+.loc .n { color: var(--muted); text-align: right; padding-right: 14px; user-select: none; }
+.loc pre { margin: 0; font: inherit; white-space: pre; padding-right: 18px; }
+.loc.hit { background: color-mix(in srgb, var(--sev-color) 12%, transparent); cursor: pointer; }
+.loc.hit .sev { background: var(--sev-color); }
+.loc.flash { outline: 2px solid var(--sev-color); outline-offset: -2px; }
+
+.controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; padding: 16px 18px; border-top: 1px solid var(--line); }
+@media (max-width: 560px) { .controls { grid-template-columns: minmax(0, 1fr); } }
+.opts { display: flex; gap: 14px; flex-wrap: wrap; align-items: end; }
+label.field { display: grid; gap: 5px; font-size: 12.5px; color: var(--muted); font-weight: 500; }
+input[type="text"] { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--sunken); color: var(--ink); font: 13.5px var(--font-code); width: 150px; }
+input[type="text"]:focus { border-color: var(--accent); outline: none; }
+label.check { display: flex; gap: 8px; align-items: center; font-size: 13.5px; cursor: pointer; padding-bottom: 7px; }
+input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+button.primary { padding: 11px 20px; border: 0; border-radius: 9px; background: var(--accent); color: var(--surface); font: 600 15px var(--font-body); cursor: pointer; white-space: nowrap; }
+button.primary:disabled { opacity: .55; cursor: progress; }
+.note { padding: 0 18px 16px; margin: 0; font-size: 12px; color: var(--muted); }
+.error { color: var(--critical); font-size: 13px; margin: 0; padding: 0 18px 16px; }
+
+/* results */
+.results { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.verdict { padding: 20px; }
+.verdict h2 { font-size: 24px; font-weight: 700; line-height: 1.25; }
+.verdict h2 em { font-style: normal; color: var(--verdict-color, var(--ink)); }
+.verdict p { margin: 8px 0 0; color: var(--muted); }
+.funnel { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border-top: 1px solid var(--line); border-radius: 0 0 14px 14px; overflow: hidden; }
+@media (max-width: 520px) { .funnel { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.funnel div { background: var(--surface); padding: 12px 16px; }
+.funnel b { display: block; font: 600 22px var(--font-code); }
+.funnel span { font-size: 12px; color: var(--muted); }
+
+.group-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 4px 2px 0; }
+.group-title h3 { font-size: 16px; font-weight: 700; }
+.group-title span { font-size: 12.5px; color: var(--muted); }
+
+.finding { border: 1px solid var(--line); border-left: 4px solid var(--sev-color); border-radius: 10px; background: var(--surface); padding: 14px 16px; display: grid; gap: 8px; min-width: 0; }
+.f-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.sev-tag { font: 600 11px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--sev-color); }
+.rule { font: 500 13.5px var(--font-code); overflow-wrap: anywhere; }
+.where { margin-left: auto; font: 12.5px var(--font-code); color: var(--muted); }
+.where button { border: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; padding: 0; }
+.finding p { margin: 0; font-size: 14px; }
+.finding p code { font-size: 12.5px; padding: 1px 5px; border-radius: 5px; background: var(--sunken); }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; width: fit-content; }
+.badge.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.badge.warn { background: color-mix(in srgb, var(--medium) 16%, transparent); color: var(--medium); }
+.badge.same { background: var(--sunken); color: var(--muted); }
+.badge.ai { background: var(--accent-soft); color: var(--accent); }
+.diff { margin: 0; border-radius: 8px; background: var(--sunken); font: 12.5px/1.55 var(--font-code); overflow-x: auto; padding-block: 6px; }
+.diff div { padding: 0 12px; white-space: pre; }
+.diff .add { background: var(--add-bg); }
+.diff .del { background: var(--del-bg); }
+.diff .hunk { color: var(--muted); }
+
+details.dismissed { border: 1px dashed var(--line); border-radius: 10px; padding: 12px 16px; }
+details.dismissed summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+details.dismissed ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 13.5px; display: grid; gap: 6px; }
+
+.empty, .working { padding: 22px; }
+.empty h2, .working h2 { font-size: 20px; font-weight: 700; }
+.empty p, .working p { color: var(--muted); margin: 8px 0 0; max-width: 56ch; }
+.steps { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 10px; font-size: 14px; }
+.steps li { display: flex; gap: 10px; align-items: center; }
+.steps li::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+.steps li:nth-child(2)::before { animation-delay: .2s; } .steps li:nth-child(3)::before { animation-delay: .4s; } .steps li:nth-child(4)::before { animation-delay: .6s; }
+@keyframes pulse { 50% { opacity: .25; } }
+.timer { font: 600 13px var(--font-code); color: var(--accent); }
+.foot { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
 </head>
 <body>
-  <h1>CodeGuard AI</h1>
-  <p>Paste Python code. Semgrep scans it, Gemini triages the findings, and fixes are verified before they're shown.</p>
-  <p><small>Demo only: don't paste private code (it is sent to a free-tier LLM).</small></p>
-  <input id="key" value="demo-key" placeholder="API key" autocomplete="off" spellcheck="false">
-  <label><input id="fix" type="checkbox"> Generate verified fixes (slower)</label>
-  <textarea id="code" placeholder="Paste Python code here"></textarea>
-  <button id="scan">Scan</button>
-  <pre id="out"></pre>
-  <script>
-    document.getElementById("scan").onclick = async () => {
-      const out = document.getElementById("out");
-      out.textContent = "Scanning... (free-tier pacing can take a minute)";
-      const res = await fetch("/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-API-Key": document.getElementById("key").value.trim().replace(/^API_KEY=/, "") },
-        body: JSON.stringify({ code: document.getElementById("code").value, fix: document.getElementById("fix").checked }),
-      });
-      const data = await res.json();
-      out.textContent = res.ok ? data.report_markdown : "Error: " + JSON.stringify(data.detail);
-    };
-  </script>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+      </div>
+      <div>
+        <h1>CodeGuard AI</h1>
+        <p>Security review for Python. Every suggested fix is re-scanned before you see it.</p>
+      </div>
+    </div>
+    <div class="flow" aria-label="How a review works">
+      <span>Semgrep scan</span><b>→</b><span>AI triage</span><b>→</b><span>Logic review</span><b>→</b><span>Verified fixes</span>
+    </div>
+  </header>
+
+  <div class="console">
+    <section class="panel" aria-label="Code">
+      <div class="panel-head">
+        <div class="tabs" role="group" aria-label="Code view">
+          <button id="tabEdit" type="button" aria-pressed="true">Edit</button>
+          <button id="tabReview" type="button" aria-pressed="false" disabled>Annotated</button>
+        </div>
+        <button class="link" id="loadExample" type="button">Load vulnerable example</button>
+      </div>
+      <textarea id="code" spellcheck="false" aria-label="Python code to review"></textarea>
+      <div class="annotated" id="annotated" hidden></div>
+      <form class="controls" id="scanForm" novalidate>
+        <div class="opts">
+          <label class="field" for="filename">File name <input id="filename" type="text" value="app.py" spellcheck="false"></label>
+          <label class="field" for="key">API key <input id="key" type="text" value="demo-key" autocomplete="off" spellcheck="false"></label>
+          <label class="check" for="fix"><input id="fix" type="checkbox"> Write verified fixes</label>
+        </div>
+        <button class="primary" id="scan" type="submit">Review code</button>
+      </form>
+      <p class="error" id="error" hidden></p>
+      <p class="note">Demo service on a free AI tier: don't paste private or company code. A review takes about a minute, longer with fixes.</p>
+    </section>
+
+    <section class="results" id="results" aria-live="polite">
+      <div class="panel empty" id="emptyState">
+        <h2>Findings appear here</h2>
+        <p>The example on the left is a small Flask app with SQL injection, command injection and an unprotected admin route. Choose "Review code" to see which findings are real, what the AI spots that pattern rules miss, and fixes that passed a Semgrep re-scan.</p>
+      </div>
+
+      <div class="panel working" id="workingState" hidden>
+        <h2>Reviewing your code <span class="timer" id="timer">0s</span></h2>
+        <p>Free-tier requests are paced a few seconds apart, so this takes a moment.</p>
+        <ul class="steps" id="workSteps">
+          <li>Semgrep scans every line with vendored rules</li>
+          <li>AI checks each finding: real or false positive?</li>
+          <li>AI looks for logic flaws pattern rules can't see</li>
+          <li id="fixStep">Fixes are written, then re-scanned until they pass</li>
+        </ul>
+      </div>
+
+      <div id="report" class="results" hidden>
+        <div class="panel">
+          <div class="verdict">
+            <div class="eyebrow" id="verdictFile"></div>
+            <h2 id="verdictText" style="margin-top:8px"></h2>
+            <p id="verdictDetail"></p>
+          </div>
+          <div class="funnel" id="funnel"></div>
+        </div>
+        <div class="group-title"><h3>Confirmed issues</h3><button class="link" id="copyReport" type="button">Copy Markdown report</button></div>
+        <div class="results" id="confirmed"></div>
+        <div id="aiGroup" class="results" hidden>
+          <div class="group-title"><h3>Found by AI review</h3><span>not detected by Semgrep</span></div>
+          <div class="results" id="aiFindings"></div>
+        </div>
+        <details class="dismissed" id="dismissedGroup" hidden>
+          <summary id="dismissedTitle"></summary>
+          <ul id="dismissed"></ul>
+        </details>
+        <p class="foot">"Verified" means the file still parses, Semgrep no longer reports the issue, and no new findings appeared. It does not prove behaviour is unchanged, so run your tests.</p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script type="text/plain" id="exampleCode">import os
+import sqlite3
+from flask import Flask, request
+
+app = Flask(__name__)
+
+
+@app.route("/user")
+def get_user():
+    name = request.args.get("name")
+    conn = sqlite3.connect("app.db")
+    return {"rows": conn.execute(f"SELECT * FROM users WHERE name = '{name}'").fetchall()}
+
+
+@app.route("/ping")
+def ping():
+    host = request.args.get("host", "")
+    os.system("ping -c 1 " + host)
+    return "done"
+
+
+@app.route("/admin/reset", methods=["POST"])
+def reset_database():
+    os.remove("app.db")
+    return "reset"
+</script>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const RANK = { critical: 0, high: 1, medium: 2, low: 3 };
+  const sevOf = (s) => (String(s || "medium").toLowerCase() in RANK ? String(s).toLowerCase() : "medium");
+  const sevColor = (s) => `var(--${sevOf(s)})`;
+  const shortRule = (id) => String(id).split(".").pop();
+  const prose = (text) => esc(text).replace(/`([^`]+)`/g, "<code>$1</code>");
+
+  // Several Semgrep rules often flag the same bug: findings within 2 lines of each other count as one bug
+  function countBugs(lines) {
+    const sorted = [...lines].sort((a, b) => a - b);
+    let bugs = 0, lastLine = -99;
+    for (const n of sorted) { if (n - lastLine > 2) bugs++; lastLine = n; }
+    return bugs;
+  }
+  let last = null;                                      // { data, code } of the latest review
+
+  $("code").value = $("exampleCode").textContent;
+  $("loadExample").onclick = () => { $("code").value = $("exampleCode").textContent; showTab("edit"); };
+
+  function showTab(which) {
+    const review = which === "review";
+    $("tabEdit").setAttribute("aria-pressed", String(!review));
+    $("tabReview").setAttribute("aria-pressed", String(review));
+    $("code").hidden = review; $("annotated").hidden = !review;
+  }
+  $("tabEdit").onclick = () => showTab("edit");
+  $("tabReview").onclick = () => showTab("review");
+
+  function renderAnnotated(code, marks) {
+    $("annotated").innerHTML = code.replace(/\n$/, "").split("\n").map((text, i) => {
+      const n = i + 1, m = marks.get(n);
+      const style = m ? ` style="--sev-color:${sevColor(m.severity)}"` : "";
+      const title = m ? ` title="${esc(m.label)}"` : "";
+      return `<div class="loc${m ? " hit" : ""}" id="L${n}"${style}${title}><span class="sev"></span><span class="n">${n}</span><pre>${esc(text) || " "}</pre></div>`;
+    }).join("");
+  }
+
+  function jumpTo(line) {
+    showTab("review");
+    const row = $("L" + line); if (!row) return;
+    row.scrollIntoView({ block: "center", behavior: "smooth" });
+    row.classList.add("flash"); setTimeout(() => row.classList.remove("flash"), 1400);
+  }
+
+  function renderDiff(diff) {
+    return `<pre class="diff">${String(diff).split("\n").filter((l) => !l.startsWith("---") && !l.startsWith("+++")).map((l) => {
+      const cls = l.startsWith("+") ? "add" : l.startsWith("-") ? "del" : l.startsWith("@@") ? "hunk" : "";
+      return `<div class="${cls}">${esc(l) || " "}</div>`;
+    }).join("")}</pre>`;
+  }
+
+  function fixBadge(fix) {
+    if (!fix) return "";
+    if (fix.status === "verified") return `<span class="badge ok">✓ Fix verified after ${fix.attempts} attempt${fix.attempts === 1 ? "" : "s"}</span>${renderDiff(fix.diff)}`;
+    if (fix.status === "covered") return `<span class="badge same">Same bug as line ${esc(fix.by_line)}, fixed above</span>`;
+    return `<span class="badge warn">Fix could not be verified (${esc(fix.reason)}). Fix this one by hand.</span>`;
+  }
+
+  function renderResult(data, code) {
+    last = { data, code };
+    const result = data.result;
+    const findings = result.findings || [];
+    const real = findings.filter((f) => f.is_real).sort((a, b) => RANK[sevOf(a.severity_ai)] - RANK[sevOf(b.severity_ai)]);
+    const dismissed = findings.filter((f) => !f.is_real);
+    const logic = (result.logic_issues || []).slice().sort((a, b) => RANK[sevOf(a.severity)] - RANK[sevOf(b.severity)]);
+    const fixesTried = real.filter((f) => f.fix && f.fix.status !== "covered");
+    const verified = fixesTried.filter((f) => f.fix.status === "verified").length;
+
+    const all = [...real.map((f) => sevOf(f.severity_ai)), ...logic.map((i) => sevOf(i.severity))];
+    const worst = all.sort((a, b) => RANK[a] - RANK[b])[0];
+    const semgrepBugs = countBugs(real.map((f) => f.line));
+    const total = semgrepBugs + logic.length;
+    document.documentElement.style.setProperty("--verdict-color", total ? sevColor(worst) : "var(--ok)");
+    $("verdictFile").textContent = result.filename;
+    $("verdictText").innerHTML = total
+      ? `<em>${total} security issue${total === 1 ? "" : "s"}</em> to fix, the worst rated ${worst}.`
+      : `<em>No confirmed issues.</em> Nothing to fix here.`;
+    $("verdictDetail").textContent = `Semgrep raised ${findings.length} finding${findings.length === 1 ? "" : "s"}; AI triage confirmed ${real.length} (${semgrepBugs} distinct bug${semgrepBugs === 1 ? "" : "s"}) and dismissed ${dismissed.length}. `
+      + (logic.length ? `The logic review found ${logic.length} more that pattern rules can't see.` : "The logic review found nothing extra.")
+      + (fixesTried.length ? ` ${verified} of ${fixesTried.length} fixes passed verification.` : "");
+    $("funnel").innerHTML = [[findings.length, "flagged by Semgrep"], [real.length, "confirmed real"], [dismissed.length, "false positives"], [logic.length, "found by AI only"]]
+      .map(([n, label]) => `<div><b>${n}</b><span>${label}</span></div>`).join("");
+
+    $("confirmed").innerHTML = real.length ? real.map((f) => `
+      <article class="finding" style="--sev-color:${sevColor(f.severity_ai)}">
+        <div class="f-head"><span class="sev-tag">${esc(sevOf(f.severity_ai))}</span><span class="rule">${esc(shortRule(f.rule_id))}</span>
+          <span class="where"><button type="button" data-line="${f.line}">line ${f.line}</button></span></div>
+        <p>${prose(f.explanation || f.message)}</p>
+        ${fixBadge(f.fix)}
+      </article>`).join("") : `<p class="foot">Semgrep found nothing that the AI confirmed as exploitable.</p>`;
+
+    $("aiGroup").hidden = !logic.length;
+    $("aiFindings").innerHTML = logic.map((i) => `
+      <article class="finding" style="--sev-color:${sevColor(i.severity)}">
+        <div class="f-head"><span class="sev-tag">${esc(sevOf(i.severity))}</span><span class="rule">${esc(i.title)}</span>
+          <span class="where"><button type="button" data-line="${i.line}">line ${i.line}</button></span></div>
+        <p>${prose(i.explanation)}</p>
+        <span class="badge ai">Found by AI · evidence checked against line ${i.line}</span>
+      </article>`).join("");
+
+    $("dismissedGroup").hidden = !dismissed.length;
+    $("dismissedTitle").textContent = `${dismissed.length} Semgrep finding${dismissed.length === 1 ? "" : "s"} dismissed as false positive${dismissed.length === 1 ? "" : "s"}`;
+    $("dismissed").innerHTML = dismissed.map((f) => `<li><span class="mono">${esc(shortRule(f.rule_id))}</span> (line ${f.line}): ${esc(f.explanation)}</li>`).join("");
+
+    const marks = new Map();
+    for (const f of real) if (!marks.has(f.line)) marks.set(f.line, { severity: f.severity_ai, label: shortRule(f.rule_id) });
+    for (const i of logic) if (!marks.has(i.line)) marks.set(i.line, { severity: i.severity, label: i.title });
+    renderAnnotated(code, marks);
+    $("tabReview").disabled = false; showTab("review");
+
+    $("emptyState").hidden = true; $("workingState").hidden = true; $("report").hidden = false;
+  }
+
+  $("results").addEventListener("click", (e) => { const line = e.target.closest("[data-line]"); if (line) jumpTo(+line.dataset.line); });
+  $("annotated").addEventListener("click", (e) => {
+    const row = e.target.closest(".loc.hit"); if (!row) return;
+    const btn = document.querySelector(`#report [data-line="${row.id.slice(1)}"]`);
+    if (btn) btn.closest(".finding").scrollIntoView({ block: "center", behavior: "smooth" });
+  });
+
+  $("copyReport").onclick = async () => {
+    if (!last) return;
+    try { await navigator.clipboard.writeText(last.data.report_markdown); $("copyReport").textContent = "Copied"; }
+    catch { $("copyReport").textContent = "Copy failed"; }
+    setTimeout(() => ($("copyReport").textContent = "Copy Markdown report"), 1600);
+  };
+
+  $("scanForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const code = $("code").value;
+    $("error").hidden = true;
+    if (!code.trim()) { $("error").textContent = "Paste some Python code first."; $("error").hidden = false; return; }
+    const key = $("key").value.trim().replace(/^API_KEY=/, "");
+    $("scan").disabled = true; $("scan").textContent = "Reviewing…";
+    $("fixStep").hidden = !$("fix").checked;
+    $("emptyState").hidden = true; $("report").hidden = true; $("workingState").hidden = false;
+    const started = Date.now();
+    const tick = setInterval(() => ($("timer").textContent = Math.round((Date.now() - started) / 1000) + "s"), 1000);
+    try {
+      const res = await fetch("/scan", { method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": key },
+        body: JSON.stringify({ code, filename: $("filename").value.trim() || "app.py", fix: $("fix").checked }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(res.status === 401 ? "That API key isn't accepted. Use demo-key, or the key from your own .env."
+        : res.status === 429 ? "Too many reviews in one minute. Wait a moment and try again."
+        : res.status === 422 ? "The code is empty or too long (100,000 characters at most)."
+        : "The review failed: " + (data.detail || res.statusText));
+      renderResult(data, code);
+    } catch (err) {
+      $("workingState").hidden = true; (last ? $("report") : $("emptyState")).hidden = false;
+      $("error").textContent = err.message; $("error").hidden = false;
+    } finally {
+      clearInterval(tick); $("scan").disabled = false; $("scan").textContent = "Review code";
+    }
+  });
+</script>
 </body>
 </html>
